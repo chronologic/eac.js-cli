@@ -5,6 +5,7 @@ const fs = require('fs');
 const BigNumber = require("bignumber.js")
 const clear = require("clear")
 const ethUtil = require("ethereumjs-util")
+const Web3WsProvider = require('web3-providers-ws');
 const ora = require("ora")
 const program = require("commander")
 const readlineSync = require("readline-sync")
@@ -50,8 +51,11 @@ program
   .option("-s, --schedule", "schedules a transactions")
   .option("--block")
   .option("--timestamp")
-  .option('-w, --wallet [path]', 'specify the path to the keyfile you would like to unlock')
-  .option('-p, --password [string]', 'the password to unlock your keystore file')
+  .option('-w, --wallet [path...]', 'specify the path to the keyfile you would like to unlock (For multiple wallet files, pass in each file with -w option)', function (path, paths) {
+    paths.push(path);
+    return paths;
+  }, [])
+  .option('-p, --password [string]', 'the password to unlock your keystore file(s) (For multiple wallets, all wallets must have the same password')
   .option("-c, --client", "starts the executing client")
   .option('--createWallet', 'guides you through creating a new wallet.')
   .option('--fundWallet <ether amt>', 'funds each account in wallet the <ether amt>')
@@ -61,11 +65,18 @@ program
   .parse(process.argv)
 
 // Create the web3 object by using the chosen provider, defaults to localhost:8545
-const Web3 = require("web3")
+const Web3 = require("web3");
+const provider = (() => {
+  if ( new RegExp('http://').test(program.provider) || new RegExp('https://').test(program.provider) ) {
+    return new Web3.providers.HttpProvider(`${program.provider}`);
+  } else if (new RegExp('ws://').test(program.provider) || new RegExp('wss://').test(program.provider) ) {
+    const ws = new Web3WsProvider(`${program.provider}`);
+    ws.__proto__.sendAsync = ws.__proto__.send;
+    return ws;
+  }
+})();
 
-const provider = new Web3.providers.HttpProvider(`${program.provider}`)
 const web3 = new Web3(provider)
-
 const eac = require('eac.js-lib')(web3)
 
 const main = async (_) => {
@@ -161,7 +172,15 @@ const main = async (_) => {
     }
 
     const logger = new Logger(program.logfile, program.logLevel)
-    const encKeystore = fs.readFileSync(program.wallet, 'utf8');
+    let encKeystores = [];
+    program.wallet.map( file => {
+      const fileStore = fs.readFileSync(file, 'utf8');
+      if (typeof JSON.parse(fileStore).length !== 'undefined' ) {
+        encKeystores = encKeystores.concat(JSON.parse(fileStore));
+      } else {
+        encKeystores.push(fileStore)
+      }
+    });
 
     // Loads conf
     let conf = await Config.create({
@@ -172,7 +191,7 @@ const main = async (_) => {
       web3, // conf.web3
       eac, // conf.eac
       provider: program.provider, // conf.provider
-      walletStore: encKeystore, // conf.walletStore
+      walletStores: encKeystores, // conf.walletStore
       password: program.password, // wallet password
       autostart: program.autostart
     })
@@ -210,7 +229,7 @@ const main = async (_) => {
     scanner.start(program.milliseconds, conf)
     setTimeout(() => Repl.start(conf, program.milliseconds), 1200)
 
-    if (analytics) {
+    if (analytics && conf.wallet) {
       const addresses = conf.wallet.getAddresses()
       analytics.startAnalytics(addresses[0]);
     }

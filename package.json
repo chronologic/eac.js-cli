@@ -1,6 +1,6 @@
 {
   "name": "eac.js-cli",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "description": "Commandline tool written in javascript to interact with the Ethereum Alarm Clock",
   "main": "index.js",
   "scripts": {
@@ -30,7 +30,7 @@
     "clear": "0.0.1",
     "commander": "^2.14.1",
     "dotenv": "^5.0.1",
-    "eac.js-client": "^2.3.0",
+    "eac.js-client": "^2.4.0",
     "eac.js-lib": "^1.2.0",
     "ethereumjs-util": "^5.1.5",
     "keen-tracking": "^1.4.0",
@@ -39,5 +39,8 @@
     "readline-sync": "^1.4.9",
     "web3": "^0.20.5",
     "web3-providers-ws": "^1.0.0-beta.33"
+  },
+  "engines": {
+    "node": ">=8"
   }
 }
